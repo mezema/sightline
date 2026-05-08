@@ -145,7 +145,11 @@ async function getJob(jobId: string, response: ServerResponse) {
 async function listJobs(response: ServerResponse) {
   const indexPath = join(jobsDir, "index.json");
   const index = await readFile(indexPath, "utf8").then(JSON.parse).catch(() => []);
-  sendJson(response, 200, { jobs: index });
+  const hydrated = await Promise.all(index.map(async (entry: { id: string; referenceImage?: unknown }) => {
+    if (entry.referenceImage) return entry;
+    return hydrateJobIndexEntry(entry);
+  }));
+  sendJson(response, 200, { jobs: hydrated });
 }
 
 async function saveUploadedImage(file: MultipartFile, directory: string, urlPrefix: string, namePrefix = "reference"): Promise<JobImage> {
@@ -193,12 +197,36 @@ async function updateJobIndex(job: InspectionJob) {
     id: job.id,
     status: job.status,
     description: job.description,
+    referenceImage: {
+      originalFilename: job.referenceImage.originalFilename,
+      url: job.referenceImage.url,
+    },
     createdAt: job.createdAt,
     completedAt: job.completedAt,
     summary: summarizeJob(job),
   };
   const next = [item, ...index.filter((entry: { id: string }) => entry.id !== job.id)].slice(0, 50);
   await writeFile(indexPath, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+async function hydrateJobIndexEntry(entry: { id: string }) {
+  try {
+    const job = await readJob(entry.id);
+    return {
+      id: job.id,
+      status: job.status,
+      description: job.description,
+      referenceImage: {
+        originalFilename: job.referenceImage.originalFilename,
+        url: job.referenceImage.url,
+      },
+      createdAt: job.createdAt,
+      completedAt: job.completedAt,
+      summary: summarizeJob(job),
+    };
+  } catch {
+    return entry;
+  }
 }
 
 async function serveStatic(pathname: string, response: ServerResponse) {

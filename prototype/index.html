@@ -7,16 +7,33 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <div class="server-notice hidden" id="server-notice">
+      This prototype needs the local server. Start it with
+      <code>GEMINI_API_KEY="..." node src/prototype-server.ts</code>
+      and open <a href="http://localhost:4173/prototype/">localhost:4173/prototype</a>.
+    </div>
     <header class="topbar">
       <div>
         <p class="eyebrow">Sightline Local</p>
-        <h1>Defect Inspection</h1>
+        <h1 id="page-title">Inspections</h1>
       </div>
-      <a href="/review/">Spike review</a>
+      <div class="topbar-actions">
+        <button id="back-button" class="secondary hidden" type="button">Inspections</button>
+        <button id="new-inspection-button" type="button">New inspection</button>
+        <a href="/review/">Spike review</a>
+      </div>
     </header>
 
     <main class="shell">
-      <section class="panel intake" aria-labelledby="new-job-title">
+      <section class="panel library-panel" id="library-panel" aria-labelledby="library-title">
+        <div class="section-title">
+          <p class="eyebrow">Library</p>
+          <h2 id="library-title">Inspections</h2>
+        </div>
+        <div class="library-list" id="library-list"></div>
+      </section>
+
+      <section class="panel intake hidden" id="new-inspection-panel" aria-labelledby="new-job-title">
         <div class="section-title">
           <p class="eyebrow">New inspection</p>
           <h2 id="new-job-title">Reference + targets</h2>
@@ -41,9 +58,9 @@
         </form>
       </section>
 
-      <section class="panel status-panel" aria-labelledby="status-title">
+      <section class="panel status-panel hidden" id="status-panel" aria-labelledby="status-title">
         <div class="section-title">
-          <p class="eyebrow">Current job</p>
+          <p class="eyebrow" id="job-mode-label">Inspection</p>
           <h2 id="status-title">No job running</h2>
         </div>
         <div class="progress-wrap">
@@ -53,10 +70,13 @@
         <div class="reference-strip" id="reference-strip"></div>
       </section>
 
-      <section class="results" aria-labelledby="results-title">
-        <div class="section-title">
-          <p class="eyebrow">Review</p>
-          <h2 id="results-title">Results</h2>
+      <section class="results hidden" id="results-panel" aria-labelledby="results-title">
+        <div class="section-title result-heading">
+          <div>
+            <p class="eyebrow" id="results-mode-label">Review</p>
+            <h2 id="results-title">Results</h2>
+          </div>
+          <div class="bucket-tabs" id="bucket-tabs" aria-label="Result filters"></div>
         </div>
         <div class="grid" id="results-grid"></div>
       </section>
@@ -76,6 +96,20 @@
           <span class="badge"></span>
         </div>
       </article>
+    </template>
+
+    <template id="library-row-template">
+      <button class="library-row" type="button">
+        <img alt="" />
+        <span class="library-main">
+          <strong></strong>
+          <small></small>
+        </span>
+        <span class="library-meta">
+          <span class="badge"></span>
+          <small></small>
+        </span>
+      </button>
     </template>
 
     <script type="module" src="./prototype.js"></script>

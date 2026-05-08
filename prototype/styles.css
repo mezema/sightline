@@ -20,6 +20,21 @@ body {
   margin: 0;
 }
 
+.server-notice {
+  background: #fff4d8;
+  border-bottom: 1px solid #d4b25f;
+  color: #4e3b0b;
+  font: 14px ui-sans-serif, system-ui, sans-serif;
+  padding: 12px clamp(18px, 4vw, 48px);
+}
+
+.server-notice code {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(78, 59, 11, 0.2);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
 .topbar {
   align-items: end;
   background: #fbfaf6;
@@ -32,6 +47,12 @@ body {
 .topbar a {
   color: var(--ink);
   font: 700 14px ui-sans-serif, system-ui, sans-serif;
+}
+
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  gap: 16px;
 }
 
 h1,
@@ -72,12 +93,113 @@ h2 {
   padding: 18px;
 }
 
+.hidden {
+  display: none !important;
+}
+
+.library-panel {
+  grid-column: 1 / -1;
+}
+
+.library-list {
+  display: grid;
+  gap: 12px;
+}
+
+.library-row {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  padding: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.library-row:hover {
+  border-color: #b9ad98;
+}
+
+.library-row img {
+  background: #e8e2d5;
+  border: 1px solid var(--line);
+  height: 64px;
+  object-fit: cover;
+  width: 64px;
+}
+
+.library-main,
+.library-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.library-main strong {
+  font: 700 15px ui-sans-serif, system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.library-main small,
+.library-meta small,
+.empty-state span {
+  color: var(--muted);
+  font: 13px ui-sans-serif, system-ui, sans-serif;
+}
+
+.library-meta {
+  justify-items: end;
+}
+
+.empty-state {
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 24px;
+}
+
+.empty-state strong {
+  font: 700 15px ui-sans-serif, system-ui, sans-serif;
+}
+
 .results {
   grid-column: 1 / -1;
 }
 
 .section-title {
   margin-bottom: 16px;
+}
+
+.result-heading {
+  align-items: end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.bucket-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: end;
+}
+
+.bucket-tab {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 8px 10px;
+}
+
+.bucket-tab.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
 }
 
 form {
@@ -124,6 +246,12 @@ button {
   cursor: pointer;
   font: 800 14px ui-sans-serif, system-ui, sans-serif;
   padding: 10px 14px;
+}
+
+button.secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
 }
 
 .progress {
