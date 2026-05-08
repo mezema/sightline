@@ -1,14 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { createWriteStream } from "node:fs";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { pipeline } from "node:stream/promises";
 import { GeminiAnalyzer } from "./analyzers/gemini.ts";
 import type { AnalyzerResult } from "./analyzers/DefectAnalyzer.ts";
 import { writeReports } from "./report.ts";
 import { mimeTypeForPath } from "./lib/files.ts";
-import { deriveJobStatus, summarizeJob, type InspectionJob, type JobImage } from "./prototype/job.ts";
+import { deriveJobStatus, summarizeJob, type Feedback, type InspectionJob, type JobImage } from "./prototype/job.ts";
 import { parseMultipart, type MultipartFile } from "./prototype/multipart.ts";
 
 const root = process.cwd();
@@ -57,6 +55,21 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       return;
     }
 
+    if (request.method === "POST" && url.pathname.match(/^\/api\/jobs\/[^/]+\/feedback$/)) {
+      await createFeedback(url.pathname.split("/")[3], request, response);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname.match(/^\/api\/jobs\/[^/]+\/retry$/)) {
+      await retryTarget(url.pathname.split("/")[3], request, response);
+      return;
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/sample-inspection") {
+      await createSampleInspection(response);
+      return;
+    }
+
     await serveStatic(url.pathname, response);
   } catch (error) {
     sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) });
@@ -92,6 +105,7 @@ async function createJob(request: IncomingMessage, response: ServerResponse) {
     referenceImage,
     targetImages,
     results: [],
+    feedback: [],
     createdAt: new Date().toISOString(),
     startedAt: new Date().toISOString(),
   };
@@ -140,6 +154,126 @@ async function processJob(job: InspectionJob) {
 async function getJob(jobId: string, response: ServerResponse) {
   const job = await readJob(jobId);
   sendJson(response, 200, { job, summary: summarizeJob(job) });
+}
+
+async function createFeedback(jobId: string, request: IncomingMessage, response: ServerResponse) {
+  const payload = JSON.parse((await readRequestBody(request)).toString("utf8"));
+  if (payload.kind !== "confirm" && payload.kind !== "reject") throw new Error("Feedback kind must be confirm or reject.");
+  const job = await readJob(jobId);
+  const target = job.targetImages.find((image) => image.id === payload.targetImageId);
+  if (!target) throw new Error("Target image not found.");
+
+  const feedback: Feedback = {
+    id: randomUUID(),
+    targetImageId: target.id,
+    resultTargetImage: basename(target.path),
+    kind: payload.kind,
+    createdAt: new Date().toISOString(),
+  };
+  job.feedback = [...(job.feedback ?? []), feedback];
+  await writeJob(job);
+  sendJson(response, 201, { job, summary: summarizeJob(job), feedback });
+}
+
+async function retryTarget(jobId: string, request: IncomingMessage, response: ServerResponse) {
+  const payload = JSON.parse((await readRequestBody(request)).toString("utf8"));
+  const job = await readJob(jobId);
+  const target = job.targetImages.find((image) => image.id === payload.targetImageId);
+  if (!target) throw new Error("Target image not found.");
+
+  job.status = "processing";
+  job.completedAt = undefined;
+  await writeJob(job);
+  sendJson(response, 202, { job, summary: summarizeJob(job) });
+
+  void processSingleTarget(job.id, target.id).catch(async (error) => {
+    const failedJob = await readJob(job.id);
+    failedJob.error = error instanceof Error ? error.message : String(error);
+    failedJob.status = deriveJobStatus(failedJob.targetImages.length, failedJob.results);
+    failedJob.completedAt = new Date().toISOString();
+    await writeJob(failedJob);
+  });
+}
+
+async function processSingleTarget(jobId: string, targetImageId: string) {
+  const job = await readJob(jobId);
+  const target = job.targetImages.find((image) => image.id === targetImageId);
+  if (!target) throw new Error("Target image not found.");
+  const analyzer = new GeminiAnalyzer();
+  const result = await analyzer.analyze({
+    referenceImagePath: job.referenceImage.path,
+    targetImagePath: target.path,
+    defectDescription: job.description,
+    idempotencyKey: `${job.id}:${target.id}:gemini:retry:${Date.now()}`,
+  });
+  result.targetImage = basename(target.path);
+  (result as AnalyzerResult & { attemptId?: string }).attemptId = randomUUID();
+
+  const current = await readJob(job.id);
+  current.results = [...current.results.filter((item) => item.targetImage !== result.targetImage), result];
+  current.status = deriveJobStatus(current.targetImages.length, current.results);
+  current.completedAt = current.status === "processing" ? undefined : new Date().toISOString();
+  await writeJob(current);
+  await writeReports(current.results, join(jobsDir, job.id, "outputs"));
+}
+
+async function createSampleInspection(response: ServerResponse) {
+  const indexPath = join(jobsDir, "index.json");
+  const index = await readFile(indexPath, "utf8").then(JSON.parse).catch(() => []);
+  const existing = index.find((entry: { description?: string }) => entry.description === "sample: surface crack like the reference image");
+  if (existing) {
+    const job = await readJob(existing.id);
+    sendJson(response, 200, { jobId: job.id, job, summary: summarizeJob(job) });
+    return;
+  }
+
+  const jobId = `job_sample_${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const referenceDir = join(uploadsDir, jobId, "reference");
+  const targetsDir = join(uploadsDir, jobId, "targets");
+  await mkdir(referenceDir, { recursive: true });
+  await mkdir(targetsDir, { recursive: true });
+
+  const referencePath = join(referenceDir, "reference.jpg");
+  await cp(resolve(root, "samples/reference/reference-crack.jpg"), referencePath);
+  const referenceImage: JobImage = {
+    id: randomUUID(),
+    originalFilename: "reference-crack.jpg",
+    path: referencePath,
+    url: `/uploads/${jobId}/reference/reference.jpg`,
+    mimeType: "image/jpeg",
+    byteSize: (await readFile(referencePath)).byteLength,
+  };
+
+  const targetImages: JobImage[] = [];
+  for (let index = 1; index <= 5; index += 1) {
+    const file = `target-crack-0${index}.jpg`;
+    const destName = `target-${String(index).padStart(2, "0")}.jpg`;
+    const dest = join(targetsDir, destName);
+    await cp(resolve(root, `samples/targets/${file}`), dest);
+    targetImages.push({
+      id: randomUUID(),
+      originalFilename: file,
+      path: dest,
+      url: `/uploads/${jobId}/targets/${destName}`,
+      mimeType: "image/jpeg",
+      byteSize: (await readFile(dest)).byteLength,
+    });
+  }
+
+  const job: InspectionJob = {
+    id: jobId,
+    status: "processing",
+    description: "sample: surface crack like the reference image",
+    referenceImage,
+    targetImages,
+    results: [],
+    feedback: [],
+    createdAt: new Date().toISOString(),
+    startedAt: new Date().toISOString(),
+  };
+  await writeJob(job);
+  void processJob(job);
+  sendJson(response, 201, { jobId, job, summary: summarizeJob(job) });
 }
 
 async function listJobs(response: ServerResponse) {

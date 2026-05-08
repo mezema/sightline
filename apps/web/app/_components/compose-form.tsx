@@ -1,0 +1,246 @@
+"use client";
+
+import { useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+type UploadDescriptor = {
+  imageAssetId: string;
+  uploadUrl: string;
+  method: "PUT";
+  headers: Record<string, string>;
+};
+
+const MAX_TARGETS = 25;
+
+export function ComposeForm() {
+  const router = useRouter();
+  const [description, setDescription] = useState("");
+  const [reference, setReference] = useState<File | null>(null);
+  const [referencePreview, setReferencePreview] = useState<string | null>(null);
+  const [targets, setTargets] = useState<File[]>([]);
+  const [targetPreviews, setTargetPreviews] = useState<string[]>([]);
+  const [helper, setHelper] = useState("Add a reference image to begin.");
+  const [progress, setProgress] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const targetsInputRef = useRef<HTMLInputElement>(null);
+
+  const ready = Boolean(reference) && description.trim().length > 0 && targets.length > 0;
+
+  useEffect(() => {
+    if (!reference) return setHelper("Add a reference image to begin.");
+    if (description.trim().length === 0) return setHelper("Describe what counts as a defect.");
+    if (targets.length === 0) return setHelper("Add up to 25 target images.");
+    setHelper(`${targets.length} target${targets.length === 1 ? "" : "s"} ready.`);
+  }, [reference, description, targets.length]);
+
+  function chooseReference(file: File | undefined) {
+    if (!file) return;
+    setReference(file);
+    if (referencePreview) URL.revokeObjectURL(referencePreview);
+    setReferencePreview(URL.createObjectURL(file));
+  }
+
+  function chooseTargets(fileList: FileList | null) {
+    if (!fileList) return;
+    const incoming = Array.from(fileList).slice(0, MAX_TARGETS);
+    targetPreviews.forEach((url) => URL.revokeObjectURL(url));
+    setTargets(incoming);
+    setTargetPreviews(incoming.map((file) => URL.createObjectURL(file)));
+  }
+
+  async function submit() {
+    if (!ready || !reference) return;
+    setSubmitting(true);
+    setProgress("Preparing private upload URLs…");
+
+    try {
+      const session = await prepareUploads(description.trim(), reference, targets);
+      const filesByIndex = [reference, ...targets];
+      setProgress(`Uploading ${filesByIndex.length} private images…`);
+      for (let index = 0; index < session.uploads.length; index += 1) {
+        const upload = session.uploads[index];
+        const file = filesByIndex[index];
+        if (!upload || !file) throw new Error("Upload session did not match selected images.");
+        setProgress(`Uploading private image ${index + 1} of ${filesByIndex.length}…`);
+        await uploadWithRetry(upload, file);
+      }
+
+      setProgress("Verifying uploads…");
+      const completeResponse = await fetch(`/api/inspections/${session.inspectionId}/complete-uploads`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ imageAssetIds: session.uploads.map((upload) => upload.imageAssetId) }),
+      });
+      const payload = await completeResponse.json();
+      if (!completeResponse.ok) throw new Error(payload.error ?? "Could not complete uploads.");
+
+      router.push(`/i/${session.inspectionId}`);
+      router.refresh();
+    } catch (error) {
+      setProgress(null);
+      setHelper(error instanceof Error ? error.message : "Could not start the inspection.");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <Link className="inspection-back" href="/">Inspections</Link>
+
+      <div className="hero">
+        <label className="hero-reference" data-state={referencePreview ? "filled" : "empty"}>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={submitting}
+            onChange={(e) => chooseReference(e.target.files?.[0])}
+          />
+          {referencePreview ? <img src={referencePreview} alt="Reference" /> : null}
+        </label>
+        <div className="hero-text">
+          <textarea
+            className="hero-description-input"
+            placeholder="What defect should Sightline find?"
+            rows={2}
+            value={description}
+            disabled={submitting}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <div className="hero-meta">
+            <span className="pill" data-state="draft">draft</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="compose-targets"
+        data-active={dragOver ? "true" : "false"}
+        onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer?.files?.length) chooseTargets(e.dataTransfer.files);
+        }}
+        onClick={() => targetsInputRef.current?.click()}
+      >
+        <input
+          ref={targetsInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={submitting}
+          onChange={(e) => chooseTargets(e.target.files)}
+          style={{ display: "none" }}
+        />
+        {targets.length === 0 ? (
+          <div className="compose-targets-empty">
+            <strong>Add target images</strong>
+            <span>Drop here or click to choose. Up to 25.</span>
+          </div>
+        ) : (
+          <div className="tile-grid" style={{ pointerEvents: "none" }}>
+            {targetPreviews.map((url, i) => (
+              <div className="tile" data-state="empty" key={url}>
+                <div className="tile-image">
+                  <img src={url} alt={targets[i]?.name ?? ""} />
+                </div>
+                <div className="tile-meta">
+                  <span className="tile-name">{targets[i]?.name}</span>
+                  <span className="tile-status">{formatBytes(targets[i]?.size ?? 0)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {progress ? <div className="compose-progress">{progress}</div> : null}
+
+      <div className="compose-footer">
+        <span className="compose-helper">{helper}</span>
+        <button className="btn" type="button" disabled={!ready || submitting} onClick={() => void submit()}>
+          {submitting ? "Starting…" : "Start inspection"}
+        </button>
+      </div>
+    </>
+  );
+}
+
+async function uploadWithRetry(upload: UploadDescriptor, file: File) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      const response = await fetch(upload.uploadUrl, {
+        method: upload.method,
+        headers: upload.headers,
+        body: file,
+      });
+      if (response.ok) return;
+      const errorText = await response.text();
+      throw new Error(errorText || `HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 4) await new Promise((resolve) => setTimeout(resolve, 600 * attempt));
+    }
+  }
+
+  const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
+  throw new Error(`Upload failed for ${file.name}.${detail}`);
+}
+
+async function prepareUploads(description: string, reference: File, targets: File[]) {
+  const response = await fetch("/api/inspections/upload-session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      description,
+      reference: await fileMetadata(reference),
+      targets: await Promise.all(targets.map(fileMetadata)),
+    }),
+  });
+  const session = (await response.json()) as { inspectionId?: string; uploads?: UploadDescriptor[]; error?: string };
+  if (!response.ok || !session.inspectionId || !session.uploads) {
+    throw new Error(session.error ?? "Could not prepare uploads.");
+  }
+  return { inspectionId: session.inspectionId, uploads: session.uploads };
+}
+
+async function fileMetadata(file: File) {
+  const dimensions = await imageDimensions(file).catch(() => undefined);
+  return {
+    filename: file.name,
+    mimeType: file.type || "application/octet-stream",
+    byteSize: file.size,
+    width: dimensions?.width,
+    height: dimensions?.height,
+  };
+}
+
+function imageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = document.createElement("img");
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read image dimensions."));
+    };
+    image.src = url;
+  });
+}
+
+function formatBytes(bytes: number) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB"];
+  let n = bytes;
+  let i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
+  return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+}

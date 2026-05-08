@@ -1,6 +1,23 @@
 node_modules/
+.next/
+.turbo/
+.sightline-data/
+.sightline-uploads/
+.trigger/
 outputs/
 uploads/
 jobs/
+
+# Env and secrets (keep .env.example tracked)
 .env
+.env*.local
+
+# Local IDE / agent config
+.claude/
+
+# Test / typecheck artifacts
+test-results/
+playwright-report/
+*.tsbuildinfo
+
 .DS_Store

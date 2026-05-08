@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 180">
+  <rect width="256" height="180" fill="#c6bfb2"/>
+  <path d="M20 150h216" stroke="#aca292" stroke-width="16"/>
+  <text x="128" y="88" text-anchor="middle" font-family="Arial" font-size="18" fill="#685f54">failed</text>
+</svg>

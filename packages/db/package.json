@@ -1,0 +1,32 @@
+{
+  "name": "@sightline/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fake-processing": "./src/fake-processing.ts",
+    "./migrations": "./src/migrations.ts",
+    "./processing-store": "./src/processing-store.ts",
+    "./reconciler": "./src/reconciler.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:apply": "tsx src/apply-migrations.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "latest",
+    "@sightline/core": "workspace:*",
+    "drizzle-orm": "latest",
+    "postgres": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "24.0.0",
+    "drizzle-kit": "latest",
+    "tsx": "latest",
+    "typescript": "5.9.3"
+  }
+}

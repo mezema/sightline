@@ -3,112 +3,159 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sightline Prototype</title>
+    <title>Sightline</title>
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="server-notice hidden" id="server-notice">
-      This prototype needs the local server. Start it with
-      <code>GEMINI_API_KEY="..." node src/prototype-server.ts</code>
-      and open <a href="http://localhost:4173/prototype/">localhost:4173/prototype</a>.
+      Run the prototype with
+      <code>node src/prototype-server.ts</code>
+      then open
+      <a href="http://localhost:4173/prototype/">localhost:4173/prototype</a>.
     </div>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Sightline Local</p>
-        <h1 id="page-title">Inspections</h1>
-      </div>
-      <div class="topbar-actions">
-        <button id="back-button" class="secondary hidden" type="button">Inspections</button>
-        <button id="new-inspection-button" type="button">New inspection</button>
-        <a href="/review/">Spike review</a>
-      </div>
-    </header>
 
-    <main class="shell">
-      <section class="panel library-panel" id="library-panel" aria-labelledby="library-title">
-        <div class="section-title">
-          <p class="eyebrow">Library</p>
-          <h2 id="library-title">Inspections</h2>
+    <div class="app">
+      <header class="topbar">
+        <button class="brand btn-quiet" id="home-link" type="button">
+          <span class="brand-mark">Sightline</span>
+        </button>
+        <div class="topbar-actions">
+          <button class="btn-quiet btn" id="new-inspection-button" type="button">+ New inspection</button>
         </div>
-        <div class="library-list" id="library-list"></div>
-      </section>
+      </header>
 
-      <section class="panel intake hidden" id="new-inspection-panel" aria-labelledby="new-job-title">
-        <div class="section-title">
-          <p class="eyebrow">New inspection</p>
-          <h2 id="new-job-title">Reference + targets</h2>
-        </div>
-        <form id="job-form">
-          <label>
-            Defect description
-            <textarea name="description" required rows="3">surface crack like the reference image</textarea>
-          </label>
-          <label>
-            Reference image
-            <input name="reference" type="file" accept="image/*" required />
-          </label>
-          <label>
-            Target images
-            <input name="targets" type="file" accept="image/*" multiple required />
-          </label>
-          <div class="form-footer">
-            <span id="form-note">Maximum 25 targets. Gemini runs sequentially.</span>
-            <button type="submit">Run inspection</button>
+      <main class="canvas">
+        <!-- LIBRARY VIEW -->
+        <section id="library" class="view library">
+          <div class="library-header">
+            <h1>Inspections</h1>
           </div>
-        </form>
-      </section>
+          <div class="library-list" id="library-list" role="list"></div>
+        </section>
 
-      <section class="panel status-panel hidden" id="status-panel" aria-labelledby="status-title">
-        <div class="section-title">
-          <p class="eyebrow" id="job-mode-label">Inspection</p>
-          <h2 id="status-title">No job running</h2>
-        </div>
-        <div class="progress-wrap">
-          <div class="progress"><span id="progress-bar"></span></div>
-          <p id="progress-text">Create an inspection to start.</p>
-        </div>
-        <div class="reference-strip" id="reference-strip"></div>
-      </section>
+        <!-- INSPECTION VIEW (single canvas: empty / running / reviewed) -->
+        <section id="inspection" class="view dossier hidden" data-state="empty">
+          <button class="inspection-back" id="inspection-back" type="button">Inspections</button>
 
-      <section class="results hidden" id="results-panel" aria-labelledby="results-title">
-        <div class="section-title result-heading">
-          <div>
-            <p class="eyebrow" id="results-mode-label">Review</p>
-            <h2 id="results-title">Results</h2>
+          <div class="hero">
+            <label class="hero-reference" id="hero-reference" data-state="empty">
+              <input id="reference-input" name="reference" type="file" accept="image/*" />
+              <img id="reference-image" alt="" hidden />
+            </label>
+            <div class="hero-text">
+              <textarea
+                id="hero-description"
+                class="hero-description-input"
+                rows="2"
+                placeholder="What defect should Sightline find?"
+              ></textarea>
+              <div class="hero-meta" id="hero-meta">
+                <span class="pill" id="hero-pill" data-state="draft">draft</span>
+                <span id="hero-summary"></span>
+              </div>
+            </div>
           </div>
-          <div class="bucket-tabs" id="bucket-tabs" aria-label="Result filters"></div>
-        </div>
-        <div class="grid" id="results-grid"></div>
-      </section>
-    </main>
 
-    <template id="result-template">
-      <article class="result-card">
-        <div class="image-wrap">
+          <!-- COMPOSE (empty state only): targets dropzone -->
+          <div id="compose" class="compose">
+            <div class="compose-targets" id="compose-targets" data-active="false">
+              <input id="targets-input" name="targets" type="file" accept="image/*" multiple />
+              <div class="compose-targets-empty" id="compose-targets-empty">
+                <strong>Add target images</strong>
+                <span>Drop images here or click to choose. Up to 25.</span>
+              </div>
+            </div>
+            <div class="compose-footer">
+              <span class="helper" id="compose-helper">Reference + description + at least one target.</span>
+              <button class="btn" id="start-inspection" type="button" disabled>Start inspection</button>
+            </div>
+          </div>
+
+          <!-- FILTERS (review state only) -->
+          <div class="filters hidden" id="filters" role="tablist"></div>
+
+          <!-- GRID (running + review) -->
+          <div class="section-label hidden" id="grid-label">Targets</div>
+          <div class="grid" id="grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <!-- DETAIL SHEET (overlay) -->
+    <div class="sheet-backdrop" id="sheet-backdrop" data-open="false"></div>
+    <aside class="sheet" id="sheet" data-open="false" aria-modal="true" role="dialog">
+      <div class="sheet-header">
+        <div class="sheet-nav">
+          <button class="btn-quiet btn" id="sheet-prev" type="button">← Prev</button>
+          <span class="position" id="sheet-position">1 / 1</span>
+          <button class="btn-quiet btn" id="sheet-next" type="button">Next →</button>
+        </div>
+        <div>
+          <button class="btn-quiet btn" id="sheet-close" type="button">Close <span class="kbd">Esc</span></button>
+        </div>
+      </div>
+      <div class="sheet-body">
+        <div class="sheet-image">
+          <div class="sheet-image-wrap" id="sheet-image-wrap">
+            <img id="sheet-image" alt="" />
+            <svg class="overlay" id="sheet-overlay" aria-hidden="true"></svg>
+          </div>
+        </div>
+        <aside class="sheet-side">
+          <div class="field">
+            <span class="field-label">Result</span>
+            <h2 id="sheet-status">—</h2>
+          </div>
+          <div class="field">
+            <span class="field-label">File</span>
+            <span class="field-value mono" id="sheet-filename">—</span>
+          </div>
+          <div class="field" id="sheet-latency-field">
+            <span class="field-label">Latency</span>
+            <span class="field-value" id="sheet-latency">—</span>
+          </div>
+          <div class="field" id="sheet-detections-field" hidden>
+            <span class="field-label">Detections</span>
+            <ul class="detection-list" id="sheet-detections"></ul>
+          </div>
+          <div class="field" id="sheet-error-field" hidden>
+            <span class="field-label">Reason</span>
+            <span class="field-value" id="sheet-error">—</span>
+          </div>
+          <div class="actions">
+            <button class="btn btn-outline" id="sheet-mark-correct" type="button">✓ Correct</button>
+            <button class="btn btn-outline" id="sheet-mark-wrong" type="button">✕ Wrong</button>
+            <button class="btn btn-outline hidden" id="sheet-retry" type="button">Retry</button>
+          </div>
+        </aside>
+      </div>
+    </aside>
+
+    <!-- Templates -->
+    <template id="library-row-template">
+      <button class="library-row" type="button" role="listitem">
+        <img alt="" />
+        <span>
+          <strong></strong>
+          <span class="summary"></span>
+        </span>
+        <span class="pill"></span>
+        <span class="timestamp"></span>
+      </button>
+    </template>
+
+    <template id="tile-template">
+      <button class="tile" type="button" data-state="queued">
+        <div class="tile-image">
           <img alt="" />
           <svg class="overlay" aria-hidden="true"></svg>
         </div>
-        <div class="card-body">
-          <div>
-            <h3></h3>
-            <p></p>
-          </div>
-          <span class="badge"></span>
+        <div class="tile-meta">
+          <span class="tile-name"></span>
+          <span class="tile-status"></span>
         </div>
-      </article>
-    </template>
-
-    <template id="library-row-template">
-      <button class="library-row" type="button">
-        <img alt="" />
-        <span class="library-main">
-          <strong></strong>
-          <small></small>
-        </span>
-        <span class="library-meta">
-          <span class="badge"></span>
-          <small></small>
-        </span>
       </button>
     </template>
 

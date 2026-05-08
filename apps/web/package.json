@@ -1,0 +1,39 @@
+{
+  "name": "@sightline/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "sh -c 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; next dev'",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "test:browser": "playwright test",
+    "test:integration": "sh -c 'if [ -z \"$DATABASE_URL\" ]; then echo \"DATABASE_URL not set; skipping DB integration tests.\"; else tsx tests/integration/db-repository.integration.ts; fi'"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "latest",
+    "@sightline/analyzer": "workspace:*",
+    "@sightline/core": "workspace:*",
+    "@sightline/db": "workspace:*",
+    "@sightline/jobs": "workspace:*",
+    "@sightline/storage": "workspace:*",
+    "@sightline/ui": "workspace:*",
+    "@sentry/nextjs": "latest",
+    "drizzle-orm": "latest",
+    "next": "16.2.6",
+    "postgres": "latest",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "24.0.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "tailwindcss": "latest",
+    "tsx": "latest",
+    "typescript": "5.9.3"
+  }
+}
