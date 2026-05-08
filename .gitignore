@@ -6,7 +6,7 @@ node_modules/
 .trigger/
 outputs/
 uploads/
-jobs/
+/jobs/
 
 # Env and secrets (keep .env.example tracked)
 .env
