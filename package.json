@@ -1,0 +1,15 @@
+{
+  "name": "sightline-analyzer-spike",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reality-contact spike for comparing defect analyzer providers on local image batches.",
+  "scripts": {
+    "spike": "node src/run-spike.ts",
+    "prototype": "node src/prototype-server.ts",
+    "test": "node --test tests/*.test.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

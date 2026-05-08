@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sightline Spike Review</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Sightline Spike</p>
+        <h1>Analyzer Review</h1>
+      </div>
+      <div class="summary" id="summary" aria-live="polite"></div>
+    </header>
+
+    <main>
+      <section class="reference-panel" aria-labelledby="reference-title">
+        <div>
+          <p class="eyebrow">Reference</p>
+          <h2 id="reference-title">Surface crack to match</h2>
+        </div>
+        <img src="../samples/reference/reference-crack.jpg" alt="Reference crack" />
+      </section>
+
+      <section class="results-section" aria-labelledby="results-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Targets</p>
+            <h2 id="results-title">Batch Results</h2>
+          </div>
+          <label class="toggle">
+            <input id="only-detected" type="checkbox" />
+            <span>Detected only</span>
+          </label>
+        </div>
+        <div class="grid" id="results-grid"></div>
+      </section>
+    </main>
+
+    <template id="result-card-template">
+      <article class="result-card">
+        <div class="image-wrap">
+          <img alt="" />
+          <svg class="overlay" aria-hidden="true"></svg>
+        </div>
+        <div class="card-body">
+          <div>
+            <h3></h3>
+            <p class="provider"></p>
+          </div>
+          <span class="badge"></span>
+        </div>
+        <dl class="meta"></dl>
+      </article>
+    </template>
+
+    <script type="module" src="./review.js"></script>
+  </body>
+</html>

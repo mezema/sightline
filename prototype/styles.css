@@ -1,0 +1,272 @@
+:root {
+  --paper: #f3f1eb;
+  --ink: #1f211d;
+  --muted: #747064;
+  --line: #d8d2c4;
+  --panel: #fffdf8;
+  --accent: #c9352b;
+  --green: #2f6b35;
+  --amber: #8b641f;
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.topbar {
+  align-items: end;
+  background: #fbfaf6;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  padding: 24px clamp(18px, 4vw, 48px);
+}
+
+.topbar a {
+  color: var(--ink);
+  font: 700 14px ui-sans-serif, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 36px;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font: 800 12px ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.shell {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(280px, 420px) 1fr;
+  padding: 24px clamp(18px, 4vw, 48px) 48px;
+}
+
+.panel,
+.results {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.results {
+  grid-column: 1 / -1;
+}
+
+.section-title {
+  margin-bottom: 16px;
+}
+
+form {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  color: var(--muted);
+  display: grid;
+  font: 700 13px ui-sans-serif, system-ui, sans-serif;
+  gap: 7px;
+}
+
+textarea,
+input[type="file"] {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: 15px ui-sans-serif, system-ui, sans-serif;
+  padding: 10px;
+  width: 100%;
+}
+
+.form-footer {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.form-footer span,
+.progress-wrap p {
+  color: var(--muted);
+  font: 13px ui-sans-serif, system-ui, sans-serif;
+}
+
+button {
+  background: var(--ink);
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font: 800 14px ui-sans-serif, system-ui, sans-serif;
+  padding: 10px 14px;
+}
+
+.progress {
+  background: #e4ded1;
+  border-radius: 999px;
+  height: 10px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.progress span {
+  background: var(--accent);
+  display: block;
+  height: 100%;
+  transition: width 220ms ease;
+  width: 0;
+}
+
+.reference-strip {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.reference-strip:empty {
+  display: none;
+}
+
+.reference-strip img {
+  border: 1px solid var(--line);
+  height: 76px;
+  object-fit: cover;
+  width: 76px;
+}
+
+.reference-strip div {
+  display: grid;
+  gap: 4px;
+}
+
+.reference-strip strong,
+.reference-strip span {
+  font: 14px ui-sans-serif, system-ui, sans-serif;
+}
+
+.reference-strip span {
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.result-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.image-wrap {
+  aspect-ratio: 1;
+  background: #e8e2d5;
+  position: relative;
+}
+
+.image-wrap img,
+.overlay {
+  height: 100%;
+  left: 0;
+  object-fit: contain;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.overlay rect {
+  fill: rgba(201, 53, 43, 0.16);
+  stroke: var(--accent);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.card-body {
+  align-items: start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.card-body h3,
+.card-body p,
+.badge {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.card-body h3 {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.card-body p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.badge {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.badge.queued {
+  background: #efe5cb;
+  color: var(--amber);
+}
+
+.badge.detected {
+  background: #f9ddd9;
+  color: #9d2118;
+}
+
+.badge.clear {
+  background: #dfeddf;
+  color: var(--green);
+}
+
+.badge.error {
+  background: #eadcf1;
+  color: #643077;
+}
+
+@media (max-width: 860px) {
+  .shell,
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

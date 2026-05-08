@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sightline Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Sightline Local</p>
+        <h1>Defect Inspection</h1>
+      </div>
+      <a href="/review/">Spike review</a>
+    </header>
+
+    <main class="shell">
+      <section class="panel intake" aria-labelledby="new-job-title">
+        <div class="section-title">
+          <p class="eyebrow">New inspection</p>
+          <h2 id="new-job-title">Reference + targets</h2>
+        </div>
+        <form id="job-form">
+          <label>
+            Defect description
+            <textarea name="description" required rows="3">surface crack like the reference image</textarea>
+          </label>
+          <label>
+            Reference image
+            <input name="reference" type="file" accept="image/*" required />
+          </label>
+          <label>
+            Target images
+            <input name="targets" type="file" accept="image/*" multiple required />
+          </label>
+          <div class="form-footer">
+            <span id="form-note">Maximum 25 targets. Gemini runs sequentially.</span>
+            <button type="submit">Run inspection</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel status-panel" aria-labelledby="status-title">
+        <div class="section-title">
+          <p class="eyebrow">Current job</p>
+          <h2 id="status-title">No job running</h2>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress"><span id="progress-bar"></span></div>
+          <p id="progress-text">Create an inspection to start.</p>
+        </div>
+        <div class="reference-strip" id="reference-strip"></div>
+      </section>
+
+      <section class="results" aria-labelledby="results-title">
+        <div class="section-title">
+          <p class="eyebrow">Review</p>
+          <h2 id="results-title">Results</h2>
+        </div>
+        <div class="grid" id="results-grid"></div>
+      </section>
+    </main>
+
+    <template id="result-template">
+      <article class="result-card">
+        <div class="image-wrap">
+          <img alt="" />
+          <svg class="overlay" aria-hidden="true"></svg>
+        </div>
+        <div class="card-body">
+          <div>
+            <h3></h3>
+            <p></p>
+          </div>
+          <span class="badge"></span>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="./prototype.js"></script>
+  </body>
+</html>
