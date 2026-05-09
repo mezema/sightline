@@ -25,8 +25,6 @@ Sightline answers one user request:
 
 The MVP is successful when a user can sign in, create an inspection, leave or refresh while processing continues, reopen the inspection from the library, see progress and failures, review boxes over detected defects, mark results correct or wrong, and retry a failed target without rerunning the whole inspection.
 
-If jobs disappear on refresh, failed targets are hidden, images are public by default, or the user has to understand the analyzer provider, the product is not done.
-
 ## Current Stack
 
 | Layer | Tool |
