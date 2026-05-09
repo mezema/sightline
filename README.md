@@ -2,130 +2,30 @@
 
 Sightline is a durable defect-inspection workflow system.
 
-A user gives Sightline:
+A user provides one reference image, a written defect description, and up to 25 target images. Sightline stores the inspection, runs image analysis in the background, and lets a human review detections, correct results, retry failed targets, and return later.
 
-```text
-1 reference image
-1 defect description
-up to 25 target images
-```
-
-Sightline stores the inspection, runs image inspection in the background, then lets a human review, correct, retry, and return later.
-
-The product is the workflow, not the model.
+The product is the workflow: private uploads, durable processing, reviewable results, human feedback, and safe retry behavior.
 
 ```mermaid
 flowchart LR
-  user["User"] --> spec["Defect spec<br/>reference + description"]
+  user["User"] --> spec["Reference image + defect description"]
   spec --> targets["Target images"]
   targets --> job["Durable inspection"]
   job --> worker["Background processing"]
-  worker --> review["Review boxes"]
+  worker --> review["Review detections"]
   review --> feedback["Feedback + retry"]
   feedback --> job
 ```
 
-## What We Want
+## What It Does
 
-Sightline should let a user say:
+Sightline answers one user request:
 
 > Here is the defect I care about. Here is an example image. Check these other images and show me where similar defects appear.
 
-The system should accept images, store them privately, create a durable inspection, run slow external analysis in the background, survive refreshes and failures, and return reviewable results that a human can correct.
+The MVP is successful when a user can sign in, create an inspection, leave or refresh while processing continues, reopen the inspection from the library, see progress and failures, review boxes over detected defects, mark results correct or wrong, and retry a failed target without rerunning the whole inspection.
 
-The MVP is successful when a user can:
-
-1. Sign in.
-2. Create an inspection with one reference image, one defect description, and up to 25 target images.
-3. Leave or refresh while processing continues.
-4. Reopen the same inspection from the library.
-5. See progress and partial failures.
-6. Review target images with boxes over detected defects.
-7. Mark results correct or wrong.
-8. Retry a failed target without rerunning the whole inspection.
-
-The MVP is not successful if jobs disappear on refresh, failed targets are hidden, images are public by default, or the user needs to understand the analyzer provider.
-
-## Requirements
-
-### Product Requirements
-
-| Requirement | Owner | Status |
-| --- | --- | --- |
-| One reference image defines the defect example. | Product | Built |
-| A written defect description explains what to find. | Product | Built |
-| A user can inspect up to 25 target images per inspection. | Product | Built |
-| An inspection persists after refresh, navigation, or return visits. | Product + Engineering | Built |
-| Progress is visible while processing runs. | Product + UX | Built with polling |
-| Results are reviewable per target image. | Product + UX | Built |
-| Failed targets remain visible. | Product + UX | Built |
-| A failed target can be retried independently. | Product | Built |
-| Human feedback is stored without overwriting analyzer output. | Product + Engineering | Built |
-
-### Engineering And Security Requirements
-
-| Requirement | Owner | Status |
-| --- | --- | --- |
-| Postgres is the source of truth for workflow state. | Engineering | Built |
-| Object storage owns image bytes. | Engineering | Built |
-| The browser uploads images through short-lived upload URLs. | Engineering + Security | Built |
-| Jobs run outside the browser in a background worker. | Engineering | Built |
-| Analyzer output is normalized before it reaches the UI. | Engineering | Built |
-| Provider-specific response formats stay behind an adapter boundary. | Engineering | Built |
-| Each result write is tied to a processing attempt. | Engineering | Built |
-| Users can only access their own inspections and images. | Security | Built when Clerk is configured |
-| Retention and permanent deletion policy is explicit. | Product + Compliance | Still needed |
-
-### Analyzer Contract Requirements
-
-These are the most important remaining unknowns before treating Sightline as production-ready with a real analyzer.
-
-| Requirement | Owner | Status |
-| --- | --- | --- |
-| Confirm whether analysis is one target per request or batch-based. | External analyzer owner | Still needed |
-| Confirm latency p50/p95 and rate limits. | External analyzer owner | Still needed |
-| Confirm whether webhooks are available. | External analyzer owner | Still needed |
-| Confirm output schema: defect flag, confidence, boxes, masks, annotated image, errors. | External analyzer owner | Partly built around boxes |
-| Confirm bounding-box coordinate system. | External analyzer owner | Built for Gemini normalized boxes |
-| Confirm privacy terms for uploaded images. | Product + Compliance | Still needed |
-| Confirm idempotency and retry semantics. | External analyzer owner + Engineering | Still needed |
-
-## How Sightline Meets The Requirements
-
-| Need | How Sightline does it | Benefit |
-| --- | --- | --- |
-| Durable inspections | Postgres stores inspections, targets, attempts, results, detections, feedback, and events. | Work survives refreshes, retries, worker failures, and return visits. |
-| Private image handling | Cloudflare R2 stores image blobs; the database stores metadata and storage keys. | Images are not mixed into job messages or application state. |
-| Slow external analysis | Trigger.dev or the local queue runs one processing attempt per target image. | The browser is not blocked by analyzer latency. |
-| Reviewable results | Analyzer responses are normalized into `Result` and `Detection` records. | The UI can show stable boxes and statuses regardless of provider format. |
-| Human correction | Feedback rows are additive and do not mutate raw analyzer output. | The system keeps an audit trail and can compare analyzer output to review decisions. |
-| Partial failure handling | Each target has its own attempt/result lifecycle. | One failed image does not invalidate the whole inspection. |
-| Replaceable infrastructure | Core rules live behind ports for storage, jobs, and analyzers. | R2, Trigger.dev, Gemini, or Postgres can be replaced with less product churn. |
-
-## What Can Still Be Improved
-
-The next improvements should be driven by the current bottleneck: the real analyzer contract.
-
-1. **Analyzer contract and spike**
-   Run a small real-analyzer test with one reference, one description, and five targets. Record latency, rate limits, batch support, webhook support, output schema, error shape, retry behavior, and privacy terms.
-
-2. **Reliability hardening**
-   Add stronger duplicate-result handling, stuck-job reconciliation, analyzer-request tracking, and an outbox publisher if queue publication needs stricter guarantees.
-
-3. **Operational dashboard**
-   Track upload failures, queue depth, attempt wait time, analyzer latency p50/p95/p99, analyzer error rate, retry count, partial failure rate, and job completion time.
-
-4. **Realtime progress**
-   Polling is enough for MVP. If progress needs to feel live, add SSE, Trigger.dev realtime, or another one-way update path before considering custom WebSockets.
-
-5. **Security, retention, and compliance**
-   Define retention periods, permanent deletion behavior, tenant isolation, signed URL lifetime, and whether the external analyzer stores or trains on customer images.
-
-6. **Product review tools**
-   Add manual box correction, false positive/false negative reasons, project or collection organization, exports, and report generation once the core workflow is stable.
-
-7. **Scale and cost controls**
-   Add measured concurrency limits, per-user or per-tenant quotas, thumbnail generation, batch analyzer support if available, and load tests for 1, 10, and 100 simultaneous inspections.
+If jobs disappear on refresh, failed targets are hidden, images are public by default, or the user has to understand the analyzer provider, the product is not done.
 
 ## Current Stack
 
@@ -140,16 +40,16 @@ The next improvements should be driven by the current bottleneck: the real analy
 | Object storage | Cloudflare R2, private bucket |
 | Jobs | Trigger.dev |
 | Analyzer | Fake analyzer for development, Gemini for MVP |
-| Tests | Node test runner today, Playwright browser tests |
+| Tests | Node test runner, Playwright browser tests |
 | Observability | Sentry package installed, OpenTelemetry later |
 
-## The Architecture
+## Architecture
 
-Postgres is the source of truth. R2 stores private image blobs. Trigger.dev owns execution. Gemini is only an adapter.
+Postgres is the source of truth. R2 stores private image blobs. Trigger.dev owns background execution. Gemini is only an adapter.
 
 ```mermaid
 flowchart TD
-  browser["Browser / Next.js UI<br/>upload, library, review, feedback"] --> server["Next.js server layer<br/>API routes, auth, signed URLs"]
+  browser["Browser / Next.js UI"] --> server["Next.js server layer<br/>API routes, auth, signed URLs"]
   server --> postgres["Postgres<br/>inspections, targets, attempts, results, detections, feedback"]
   server --> r2["Cloudflare R2<br/>private original images"]
   postgres --> trigger["Trigger.dev worker<br/>one task per processing attempt"]
@@ -161,18 +61,13 @@ flowchart TD
   postgres --> browser
 ```
 
-### Why It Is Built This Way
-
-Sightline optimizes for one thing: inspections survive refreshes, retries, analyzer failures, and return visits.
-
-The hard rules:
+Hard rules:
 
 - Postgres owns durable workflow state.
 - R2 owns image bytes.
 - Trigger.dev owns slow background execution.
 - Analyzer output is immutable.
 - Human feedback is additive.
-- Cached counters can be rebuilt.
 - Provider formats never reach the UI.
 - Bounding boxes are stored as pixel coordinates against the original image.
 
@@ -199,46 +94,9 @@ packages/core must not import Next.js, Clerk, Drizzle, R2, Trigger.dev, or Gemin
 
 Core defines the product rules. Everything else is an adapter.
 
-## Workflow
-
-```mermaid
-sequenceDiagram
-  participant U as User
-  participant W as Web app
-  participant DB as Postgres
-  participant R2 as R2
-  participant T as Trigger.dev
-  participant A as Analyzer
-
-  U->>W: Create inspection
-  W->>DB: Create inspection + image assets
-  W->>R2: Create signed upload URLs
-  U->>R2: Upload images
-  W->>R2: Verify objects
-  W->>DB: Create targets + attempts
-  W->>T: Queue attempts
-  T->>DB: Load attempt context
-  T->>R2: Read private images
-  T->>A: Analyze target
-  T->>DB: Save result + detections + counters
-  U->>W: Review, mark wrong, retry
-```
-
-## Domain Objects
-
-| Object | Meaning |
-| --- | --- |
-| Inspection | One durable job |
-| Defect spec | Reference image plus written description |
-| Image asset | Private reference or target image metadata |
-| Inspection target | Stable row for one target image |
-| Processing attempt | One try at inspecting one target |
-| Result | Analyzer outcome for one target attempt |
-| Detection | One normalized pixel bounding box |
-| Feedback | Human correction layered on analyzer output |
-| Job event | Audit trail |
-
 ## Local Setup
+
+This path runs the app with local Postgres and the deterministic fake analyzer.
 
 ### 1. Install
 
@@ -278,15 +136,9 @@ pnpm --filter @sightline/db db:apply
 pnpm dev
 ```
 
-Open:
+Open `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
-
-That is enough for the fake-analyzer workflow.
-
-## Real Local Workflow
+## Full Local Setup
 
 Use this when you want the full R2 + Trigger.dev + Gemini loop.
 
@@ -315,14 +167,7 @@ CLERK_SECRET_KEY=...
 
 ### 2. Configure R2 CORS
 
-Create a Cloudflare API token with:
-
-```text
-Account -> Workers R2 Storage -> Edit
-Account resources -> Include your account
-```
-
-Then add it to `.env.local`:
+Create a Cloudflare API token with R2 edit permission, then add it to `.env.local`:
 
 ```sh
 CLOUDFLARE_API_TOKEN=...
@@ -409,7 +254,7 @@ No step should require knowing Gemini exists.
 
 ## Production Setup
 
-The production shape is the same as local, but with hosted services.
+Production uses hosted services with the same architecture as local.
 
 ```mermaid
 flowchart LR
@@ -423,13 +268,7 @@ flowchart LR
 
 ### 1. Create Services
 
-Create:
-
-- Clerk production app
-- Neon production database
-- Cloudflare R2 private bucket
-- Trigger.dev project
-- Vercel project
+Create a Clerk production app, Neon production database, Cloudflare R2 private bucket, Trigger.dev project, and Vercel project.
 
 ### 2. Set Production Env Vars
 
@@ -477,11 +316,9 @@ Point `DATABASE_URL` at Neon, then run:
 pnpm --filter @sightline/db db:apply
 ```
 
-### 4. Configure R2 CORS for Production
+### 4. Configure R2 CORS
 
-Add your production origin to the R2 CORS config before applying it.
-
-Example:
+Add production origins to the R2 CORS config before applying it:
 
 ```json
 {
@@ -581,13 +418,7 @@ Check:
 pnpm exec trigger dev --env-file .env.local --skip-update-check
 ```
 
-Also confirm:
-
-```text
-SIGHTLINE_JOB_QUEUE=trigger
-TRIGGER_SECRET_KEY is present
-TRIGGER_PROJECT_ID is present
-```
+Also confirm `SIGHTLINE_JOB_QUEUE=trigger`, `TRIGGER_SECRET_KEY`, and `TRIGGER_PROJECT_ID`.
 
 ### The app redirects or Clerk loops
 
@@ -599,36 +430,11 @@ The image asset exists in Postgres, but upload verification did not complete. Cr
 
 ### Node warns about the engine
 
-The repo expects Node 24 or newer. Install Node 24+ for the cleanest local setup.
+The repo expects Node 24 or newer.
 
-## Legacy Tools
+## More Detail
 
-The repo still includes the earlier analyzer spike and local prototype. They are useful for reality checks, but the product app is `apps/web`.
-
-Run the analyzer spike:
-
-```sh
-node src/run-spike.ts --description "scratch near left edge"
-```
-
-Run the old local prototype:
-
-```sh
-GEMINI_API_KEY="..." node src/prototype-server.ts
-```
-
-Open:
-
-```text
-http://localhost:4173/prototype/
-```
-
-## Product Principle
-
-Sightline should make this boring:
-
-```text
-Create inspection -> upload privately -> process in background -> review boxes -> correct -> retry -> return later
-```
-
-If jobs disappear on refresh, failed targets are hidden, images are public by default, or the user has to understand the analyzer provider, the product is not done.
+- [Requirements](docs/requirements.md)
+- [Analyzer contract](docs/analyzer-contract.md)
+- [Roadmap](docs/roadmap.md)
+- [Legacy tools](docs/legacy-tools.md)
