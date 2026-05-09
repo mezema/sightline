@@ -1,4 +1,5 @@
 import type { AnalyzerImage, DefectAnalyzer } from "./analyzer.ts";
+import { isTerminal } from "./derived-state.ts";
 import type {
   Detection,
   Feedback,
@@ -57,7 +58,7 @@ export interface ProcessingStore {
     targetImage: ImageAsset;
     defectDescription: string;
   }>;
-  markAttemptRunning(attemptId: string): Promise<void>;
+  markAttemptRunning(attemptId: string): Promise<boolean>;
   saveAnalyzerResult(input: SaveAnalyzerResultInput): Promise<void>;
   saveAnalyzerFailure(input: { attemptId: string; error: string }): Promise<void>;
 }
@@ -71,7 +72,10 @@ export async function runProcessingAttempt(input: {
   store: ProcessingStore;
 }) {
   const context = await input.store.loadAttemptContext(input.attemptId);
-  await input.store.markAttemptRunning(context.attempt.id);
+  if (isTerminal(context.attempt.status)) return;
+
+  const canProcess = await input.store.markAttemptRunning(context.attempt.id);
+  if (!canProcess) return;
 
   try {
     const [referenceImage, targetImage] = await Promise.all([

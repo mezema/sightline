@@ -399,8 +399,7 @@ async function cancelInspection(db: Db, owner: { id: string }, input: CancelPayl
   });
 
   // Rebuild counters first so processedCount / failedCount / defectCount reflect
-  // the now-cancelled attempts. rebuildInspectionCounters will also (incorrectly)
-  // overwrite status, so we re-stamp status="cancelled" after.
+  // the now-cancelled attempts, then stamp the cancellation time.
   await rebuildInspectionCounters(db, view.id);
   await db
     .update(inspections)

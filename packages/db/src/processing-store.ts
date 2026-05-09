@@ -82,19 +82,26 @@ async function loadAttemptContext(db: Db, attemptId: string) {
 
 async function markAttemptRunning(db: Db, attemptId: string) {
   const [attempt] = await db.select().from(processingAttempts).where(eq(processingAttempts.id, attemptId));
-  if (!attempt || attempt.status === "succeeded" || attempt.status === "failed" || attempt.status === "cancelled") return;
-  await db.update(processingAttempts).set({ status: "running", startedAt: attempt.startedAt ?? new Date() }).where(eq(processingAttempts.id, attemptId));
-  await db.insert(inspectionEvents).values({
-    inspectionId: attempt.inspectionId,
-    kind: "attempt_started",
-    payload: { attemptId },
-    createdAt: new Date(),
-  });
+  if (!attempt || attempt.status === "succeeded" || attempt.status === "failed" || attempt.status === "cancelled") return false;
+  if (attempt.status !== "running") {
+    await db.update(processingAttempts).set({ status: "running", startedAt: attempt.startedAt ?? new Date() }).where(eq(processingAttempts.id, attemptId));
+    await db.insert(inspectionEvents).values({
+      inspectionId: attempt.inspectionId,
+      kind: "attempt_started",
+      payload: { attemptId },
+      createdAt: new Date(),
+    });
+  }
+  return true;
 }
 
 async function saveAnalyzerResult(db: Db, input: SaveAnalyzerResultInput) {
   const now = new Date();
   const resultId = randomUUID();
+  const [attempt] = await db.select().from(processingAttempts).where(eq(processingAttempts.id, input.result.attemptId));
+  if (!attempt) throw new Error("Processing attempt not found.");
+  if (attempt.status !== "running") return;
+
   await db
     .insert(inspectionResults)
     .values({
@@ -152,6 +159,8 @@ async function saveAnalyzerFailure(db: Db, input: { attemptId: string; error: st
   const now = new Date();
   const [attempt] = await db.select().from(processingAttempts).where(eq(processingAttempts.id, input.attemptId));
   if (!attempt) throw new Error("Processing attempt not found.");
+  if (attempt.status !== "running") return;
+
   await db.update(processingAttempts).set({ status: "failed", lastError: input.error, completedAt: now }).where(eq(processingAttempts.id, input.attemptId));
   await db.insert(inspectionEvents).values({
     inspectionId: attempt.inspectionId,

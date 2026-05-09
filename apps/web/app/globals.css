@@ -125,7 +125,7 @@ button { font: inherit; cursor: pointer; }
 .canvas {
   margin: 0 auto;
   max-width: 1180px;
-  padding: 32px clamp(20px, 4vw, 48px) 96px;
+  padding: 32px clamp(20px, 4vw, 48px) calc(96px + env(safe-area-inset-bottom));
   width: 100%;
 }
 
@@ -704,6 +704,14 @@ button { font: inherit; cursor: pointer; }
   gap: 16px;
 }
 
+.hero-description-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .hero-description, .hero-description-input {
   background: transparent;
   border: 0;
@@ -716,9 +724,17 @@ button { font: inherit; cursor: pointer; }
   width: 100%;
 }
 
+.hero-description-input {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 8px;
+  transition: border-color 160ms ease;
+}
+
 .hero-description-input::placeholder { color: var(--muted); }
 
-.hero-description-input:focus { outline: none; }
+.hero-description-input:placeholder-shown { border-bottom-color: var(--hairline); }
+
+.hero-description-input:focus { border-bottom-color: var(--ink-2); outline: none; }
 
 .hero-description {
   white-space: pre-wrap;
@@ -1182,17 +1198,34 @@ button { font: inherit; cursor: pointer; }
   color: var(--muted);
 }
 
-.compose-footer {
+.compose-action-bar {
+  background: var(--paper);
+  border-top: 1px solid var(--hairline);
+  bottom: 0;
+  left: 0;
+  padding: 12px clamp(20px, 4vw, 48px) max(12px, env(safe-area-inset-bottom));
+  position: fixed;
+  right: 0;
+  z-index: 10;
+}
+
+.compose-action-bar-inner {
   align-items: center;
   display: flex;
   gap: 16px;
   justify-content: space-between;
-  margin-top: 24px;
+  margin: 0 auto;
+  max-width: 1180px;
+  width: 100%;
 }
 
 .compose-helper {
   color: var(--muted);
   font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ───── Detail sheet ───── */
@@ -1368,20 +1401,6 @@ button { font: inherit; cursor: pointer; }
 }
 
 .actions .btn { flex: 1 1 auto; }
-
-/* ───── Compose progress message ───── */
-
-.compose-progress {
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius);
-  color: #5a4214;
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-  margin-top: 16px;
-  padding: 12px 16px;
-}
 
 /* ───── Responsive ───── */
 

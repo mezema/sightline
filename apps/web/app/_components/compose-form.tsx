@@ -159,9 +159,13 @@ export function ComposeForm() {
           {referencePreview ? <img src={referencePreview} alt="Reference" /> : null}
         </label>
         <div className="hero-text">
+          <label className="hero-description-label" htmlFor="defect-spec">
+            Defect spec
+          </label>
           <textarea
+            id="defect-spec"
             className="hero-description-input"
-            placeholder="What defect should Sightline find?"
+            placeholder="Describe what counts as a defect…"
             rows={2}
             value={description}
             disabled={busy}
@@ -248,13 +252,13 @@ export function ComposeForm() {
         )}
       </div>
 
-      {progress ? <div className="compose-progress">{progress}</div> : null}
-
-      <div className="compose-footer">
-        <span className="compose-helper">{helper}</span>
-        <button className="btn" type="button" disabled={!ready || submitting} onClick={() => void submit()}>
-          {submitting ? "Starting…" : "Start inspection"}
-        </button>
+      <div className="compose-action-bar">
+        <div className="compose-action-bar-inner">
+          <span className="compose-helper">{progress ?? helper}</span>
+          <button className="btn" type="button" disabled={!ready || submitting} onClick={() => void submit()}>
+            {submitting ? "Starting…" : "Start inspection"}
+          </button>
+        </div>
       </div>
     </>
   );

@@ -95,6 +95,7 @@ async function markAttemptRunning(db: Db, attemptId: string) {
 }
 
 export async function rebuildInspectionCounters(db: Db, inspectionId: string) {
+  const [inspection] = await db.select().from(inspections).where(eq(inspections.id, inspectionId));
   const targetRows = await db.select().from(inspectionTargets).where(eq(inspectionTargets.inspectionId, inspectionId)).orderBy(asc(inspectionTargets.position));
   const attemptRows = await db.select().from(processingAttempts).where(eq(processingAttempts.inspectionId, inspectionId));
   const resultRows = await db.select().from(inspectionResults).where(eq(inspectionResults.inspectionId, inspectionId));
@@ -162,8 +163,9 @@ export async function rebuildInspectionCounters(db: Db, inspectionId: string) {
     const latestResult = results.find((result) => result.id === target.latestResultId);
     return deriveReviewBucket({ target, latestAttempt, latestResult, feedback: feedbackItems }) === "defect";
   }).length;
-  const status = targets.length ? deriveInspectionStatus(latestAttempts) : "uploading";
-  const completedAt = targets.length > 0 && processedCount === targets.length ? new Date() : null;
+  const derivedStatus = targets.length ? deriveInspectionStatus(latestAttempts) : "uploading";
+  const status = inspection?.status === "cancelled" ? "cancelled" : derivedStatus;
+  const completedAt = status === "cancelled" ? inspection?.completedAt ?? null : targets.length > 0 && processedCount === targets.length ? new Date() : null;
 
   await db
     .update(inspections)

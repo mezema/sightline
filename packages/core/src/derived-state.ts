@@ -10,9 +10,11 @@ export function deriveInspectionStatus(attempts: ProcessingAttempt[]) {
   const anyActive = latest.some((attempt) => attempt.status === "queued" || attempt.status === "running" || attempt.status === "pending");
   const succeeded = latest.filter((attempt) => attempt.status === "succeeded").length;
   const failed = latest.filter((attempt) => attempt.status === "failed").length;
+  const cancelled = latest.filter((attempt) => attempt.status === "cancelled").length;
 
   if (allTerminal && succeeded === latest.length) return "completed";
   if (allTerminal && failed === latest.length) return "failed";
+  if (allTerminal && cancelled > 0) return "cancelled";
   if (allTerminal && succeeded > 0 && failed > 0) return "partially_failed";
   if (anyActive) return "processing";
   return "queued";

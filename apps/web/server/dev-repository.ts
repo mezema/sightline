@@ -54,15 +54,14 @@ async function getInspection(id: string) {
   return { ...inspection, ...counterPatch(inspection) };
 }
 
-async function createInspection(input: CreateInspectionPayload) {
+async function createInspection(input: CreateInspectionPayload, inspectionId: string = randomUUID()) {
   const store = await readStore();
   const now = new Date().toISOString();
-  const id = randomUUID();
-  const targets = makeTargets({ inspectionId: id, createdAt: now, filenames: input.targetFilenames });
-  const attempts = makeInitialAttempts({ inspectionId: id, targets, createdAt: now });
+  const targets = makeTargets({ inspectionId, createdAt: now, filenames: input.targetFilenames });
+  const attempts = makeInitialAttempts({ inspectionId, targets, createdAt: now });
 
   const inspection: InspectionView = {
-    id,
+    id: inspectionId,
     ownerUserId: devOwnerUserId,
     defectSpecId: randomUUID(),
     status: "processing",
@@ -125,11 +124,14 @@ async function completeUploads(input: CompleteUploadsPayload) {
   const session = pendingUploadSessions.get(input.inspectionId);
   if (!session) throw new Error("Upload session not found.");
   pendingUploadSessions.delete(input.inspectionId);
-  return createInspection({
-    description: session.description,
-    referenceFilename: session.reference.filename,
-    targetFilenames: session.targets.map((target) => target.filename),
-  });
+  return createInspection(
+    {
+      description: session.description,
+      referenceFilename: session.reference.filename,
+      targetFilenames: session.targets.map((target) => target.filename),
+    },
+    input.inspectionId,
+  );
 }
 
 async function createFeedback(input: FeedbackPayload) {

@@ -6,6 +6,9 @@ node_modules/
 .trigger/
 outputs/
 uploads/
+!apps/web/app/api/uploads/
+!apps/web/app/api/uploads/[assetId]/
+!apps/web/app/api/uploads/[assetId]/route.ts
 /jobs/
 
 # Env and secrets (keep .env.example tracked)
