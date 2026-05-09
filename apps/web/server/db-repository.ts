@@ -566,25 +566,37 @@ async function hydrateInspection(db: Db, id: string): Promise<InspectionView | u
 }
 
 async function ensureUser(db: Db, owner: RequestOwner) {
-  if (owner.id === devOwnerUserId) {
-    await db
-      .insert(users)
-      .values({
-        id: owner.id,
-        clerkUserId: owner.clerkUserId,
-        email: owner.email,
-      })
-      .onConflictDoNothing({ target: users.clerkUserId });
-  } else {
-    await db
-      .insert(users)
-      .values({
-        clerkUserId: owner.clerkUserId,
-        email: owner.email,
-      })
-      .onConflictDoNothing({ target: users.clerkUserId });
+  const [existingByClerkId] = await db.select().from(users).where(eq(users.clerkUserId, owner.clerkUserId));
+  if (existingByClerkId) {
+    if (existingByClerkId.email === owner.email) return existingByClerkId;
+
+    const [existingByEmail] = await db.select().from(users).where(eq(users.email, owner.email));
+    if (existingByEmail && existingByEmail.id !== existingByClerkId.id) return existingByClerkId;
+
+    const [updated] = await db.update(users).set({ email: owner.email }).where(eq(users.id, existingByClerkId.id)).returning();
+    return updated ?? existingByClerkId;
   }
-  const [user] = await db.select().from(users).where(eq(users.clerkUserId, owner.clerkUserId));
+
+  const insertValues =
+    owner.id === devOwnerUserId
+      ? {
+          id: owner.id,
+          clerkUserId: owner.clerkUserId,
+          email: owner.email,
+        }
+      : {
+          clerkUserId: owner.clerkUserId,
+          email: owner.email,
+        };
+
+  const [user] = await db
+    .insert(users)
+    .values(insertValues)
+    .onConflictDoUpdate({
+      target: users.email,
+      set: { clerkUserId: owner.clerkUserId },
+    })
+    .returning();
   if (!user) throw new Error("Could not load current user.");
   return user;
 }

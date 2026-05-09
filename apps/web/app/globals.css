@@ -1402,6 +1402,62 @@ button { font: inherit; cursor: pointer; }
 
 .actions .btn { flex: 1 1 auto; }
 
+/* ───── Auth pages ───── */
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  padding: clamp(56px, 12vh, 128px) clamp(20px, 4vw, 48px) 64px;
+  place-items: start center;
+}
+
+.auth-content {
+  display: grid;
+  gap: 28px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.auth-brand { margin-bottom: 4px; }
+
+.auth-lede {
+  color: var(--ink);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.auth-paragraph {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.auth-paragraph .num {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+}
+
+.auth-form { margin-top: 8px; }
+
+.auth-footer {
+  color: var(--ink-2);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.auth-footer a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 120ms ease;
+}
+
+.auth-footer a:hover { text-decoration-color: var(--ink); }
+
 /* ───── Responsive ───── */
 
 @media (max-width: 720px) {
@@ -1410,6 +1466,10 @@ button { font: inherit; cursor: pointer; }
   .sheet { border-radius: 0; top: 0; width: 100%; }
   .sheet-body { grid-template-columns: 1fr; }
   .sheet-side { border-left: 0; border-top: 1px solid var(--hairline); }
+}
+
+@media (max-width: 600px) {
+  .auth-lede { font-size: 26px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

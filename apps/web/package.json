@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "sh -c 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; next dev'",
+    "dev": "sh -c 'set -a; [ -f ../../.env.local ] && . ../../.env.local; set +a; if [ -n \"$DATABASE_URL\" ]; then pnpm --dir ../.. --filter @sightline/db db:apply; fi; next dev'",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "test:browser": "playwright test",

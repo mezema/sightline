@@ -26,6 +26,27 @@ async function main() {
   await applyMigrations(databaseUrl);
   const repository = createDrizzleInspectionRepository(databaseUrl, undefined, createInlineJobQueue(databaseUrl));
 
+  const ownerEmail = `integration-owner-${Date.now()}@sightline.local`;
+  const firstOwnerRepository = createDrizzleInspectionRepository(databaseUrl, undefined, createInlineJobQueue(databaseUrl), async () => ({
+    id: "integration-clerk-owner-1",
+    clerkUserId: `integration-clerk-owner-1-${Date.now()}`,
+    email: ownerEmail,
+  }));
+  const ownershipInspection = await firstOwnerRepository.createInspection({
+    description: "integration owner identity transfer",
+    targetFilenames: ["identity-transfer-target.jpg"],
+  });
+  const secondOwnerRepository = createDrizzleInspectionRepository(databaseUrl, undefined, createInlineJobQueue(databaseUrl), async () => ({
+    id: "integration-clerk-owner-2",
+    clerkUserId: `integration-clerk-owner-2-${Date.now()}`,
+    email: ownerEmail,
+  }));
+  const transferredInspections = await secondOwnerRepository.listInspections();
+  assert(
+    transferredInspections.some((item) => item.id === ownershipInspection.id),
+    "A new Clerk user id with the same email should keep access to the existing user row",
+  );
+
   let inspection = await repository.createInspection({
     description: `integration scratch defect ${Date.now()}`,
     targetFilenames: Array.from({ length: 5 }, (_, index) => `integration-target-${index + 1}.jpg`),
