@@ -45,7 +45,7 @@ export function createDrizzleInspectionRepository(
 async function listInspections(db: Db, owner: { id: string }) {
   const rows = await db.select().from(inspections).where(eq(inspections.ownerUserId, owner.id)).orderBy(desc(inspections.createdAt));
   const views = await Promise.all(rows.map((row) => hydrateInspection(db, row.id)));
-  return views.filter((view): view is InspectionView => view !== undefined && view.status !== "uploading");
+  return views.filter((view): view is InspectionView => view !== undefined && shouldListInspection(view));
 }
 
 async function getInspection(db: Db, id: string, owner: { id: string }) {
@@ -284,38 +284,40 @@ async function completeUploads(db: Db, owner: { id: string }, storage: ObjectSto
   }));
   const attempts = makeInitialAttempts({ inspectionId: input.inspectionId, targets: targetRows, createdAt: now.toISOString() });
 
-  await db.update(imageAssets).set({ uploadStatus: "verified" }).where(eq(imageAssets.inspectionId, input.inspectionId));
-  await db.update(inspections).set({ status: "processing", submittedAt: now }).where(eq(inspections.id, input.inspectionId));
+  await db.transaction(async (tx) => {
+    await tx.update(imageAssets).set({ uploadStatus: "verified" }).where(eq(imageAssets.inspectionId, input.inspectionId));
+    await tx.update(inspections).set({ status: "processing", submittedAt: now }).where(eq(inspections.id, input.inspectionId));
 
-  for (const target of targetRows) {
-    await db.insert(inspectionTargets).values({
-      id: target.id,
-      inspectionId: target.inspectionId,
-      targetImageId: target.targetImageId,
-      position: target.position,
+    for (const target of targetRows) {
+      await tx.insert(inspectionTargets).values({
+        id: target.id,
+        inspectionId: target.inspectionId,
+        targetImageId: target.targetImageId,
+        position: target.position,
+        createdAt: now,
+      });
+    }
+    await tx.insert(processingAttempts).values(
+      attempts.map((attempt) => ({
+        id: attempt.id,
+        inspectionId: attempt.inspectionId,
+        inspectionTargetId: attempt.inspectionTargetId,
+        status: attempt.status,
+        attempt: attempt.attempt,
+        idempotencyKey: attempt.idempotencyKey,
+        startedAt: attempt.startedAt ? new Date(attempt.startedAt) : undefined,
+      })),
+    );
+    for (const target of targetRows) {
+      await tx.update(inspectionTargets).set({ latestAttemptId: target.latestAttemptId }).where(eq(inspectionTargets.id, target.id));
+    }
+    await tx.insert(inspectionEvents).values({
+      inspectionId: input.inspectionId,
+      actorUserId: owner.id,
+      kind: "uploads_verified",
+      payload: { assetCount: assets.length },
       createdAt: now,
     });
-  }
-  await db.insert(processingAttempts).values(
-    attempts.map((attempt) => ({
-      id: attempt.id,
-      inspectionId: attempt.inspectionId,
-      inspectionTargetId: attempt.inspectionTargetId,
-      status: attempt.status,
-      attempt: attempt.attempt,
-      idempotencyKey: attempt.idempotencyKey,
-      startedAt: attempt.startedAt ? new Date(attempt.startedAt) : undefined,
-    })),
-  );
-  for (const target of targetRows) {
-    await db.update(inspectionTargets).set({ latestAttemptId: target.latestAttemptId }).where(eq(inspectionTargets.id, target.id));
-  }
-  await db.insert(inspectionEvents).values({
-    inspectionId: input.inspectionId,
-    actorUserId: owner.id,
-    kind: "uploads_verified",
-    payload: { assetCount: assets.length },
-    createdAt: now,
   });
 
   await jobQueue?.enqueueAttempts(attempts.map((attempt) => attempt.id));
@@ -600,4 +602,10 @@ function assertImageMetadata(input: { filename: string; mimeType: string; byteSi
 
 function normalizeMimeType(mimeType: string) {
   return mimeType.split(";")[0]?.trim().toLowerCase() ?? mimeType.toLowerCase();
+}
+
+function shouldListInspection(view: InspectionView) {
+  if (view.status === "uploading") return false;
+  if ((view.status === "processing" || view.status === "queued") && view.targets.length === 0) return false;
+  return true;
 }

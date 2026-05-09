@@ -16,7 +16,7 @@ export default async function Home() {
     );
   }
 
-  const running = inspections.filter((inspection) => inspection.status === "processing" || inspection.status === "queued");
+  const running = inspections.filter((inspection) => (inspection.status === "processing" || inspection.status === "queued") && inspection.targets.length > 0);
   const others = inspections.filter((inspection) => !running.includes(inspection));
 
   return (

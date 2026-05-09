@@ -12,6 +12,7 @@ type UploadDescriptor = {
 };
 
 const MAX_TARGETS = 25;
+const fileKey = (file: File) => `${file.name}|${file.size}|${file.lastModified}`;
 
 export function ComposeForm() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export function ComposeForm() {
   const targetsInputRef = useRef<HTMLInputElement>(null);
 
   const ready = Boolean(reference) && description.trim().length > 0 && targets.length > 0;
+  const remaining = MAX_TARGETS - targets.length;
 
   useEffect(() => {
     if (!reference) return setHelper("Add a reference image to begin.");
@@ -42,12 +44,30 @@ export function ComposeForm() {
     setReferencePreview(URL.createObjectURL(file));
   }
 
-  function chooseTargets(fileList: FileList | null) {
-    if (!fileList) return;
-    const incoming = Array.from(fileList).slice(0, MAX_TARGETS);
-    targetPreviews.forEach((url) => URL.revokeObjectURL(url));
-    setTargets(incoming);
-    setTargetPreviews(incoming.map((file) => URL.createObjectURL(file)));
+  function addTargets(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0 || remaining <= 0) return;
+    const seen = new Set(targets.map(fileKey));
+    const incoming: File[] = [];
+    for (const file of Array.from(fileList)) {
+      if (incoming.length >= remaining) break;
+      const key = fileKey(file);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      incoming.push(file);
+    }
+    if (incoming.length === 0) return;
+    const incomingUrls = incoming.map((file) => URL.createObjectURL(file));
+    setTargets((prev) => [...prev, ...incoming]);
+    setTargetPreviews((prev) => [...prev, ...incomingUrls]);
+  }
+
+  function removeTarget(index: number) {
+    setTargetPreviews((prev) => {
+      const url = prev[index];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
+    setTargets((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function submit() {
@@ -116,6 +136,7 @@ export function ComposeForm() {
 
       <div
         className="compose-targets"
+        data-state={targets.length === 0 ? "empty" : "filled"}
         data-active={dragOver ? "true" : "false"}
         onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -123,9 +144,8 @@ export function ComposeForm() {
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          if (e.dataTransfer?.files?.length) chooseTargets(e.dataTransfer.files);
+          if (e.dataTransfer?.files?.length) addTargets(e.dataTransfer.files);
         }}
-        onClick={() => targetsInputRef.current?.click()}
       >
         <input
           ref={targetsInputRef}
@@ -133,20 +153,37 @@ export function ComposeForm() {
           accept="image/*"
           multiple
           disabled={submitting}
-          onChange={(e) => chooseTargets(e.target.files)}
+          onChange={(e) => {
+            addTargets(e.target.files);
+            e.target.value = "";
+          }}
           style={{ display: "none" }}
         />
         {targets.length === 0 ? (
-          <div className="compose-targets-empty">
+          <button
+            type="button"
+            className="compose-targets-empty"
+            disabled={submitting}
+            onClick={() => targetsInputRef.current?.click()}
+          >
             <strong>Add target images</strong>
             <span>Drop here or click to choose. Up to 25.</span>
-          </div>
+          </button>
         ) : (
-          <div className="tile-grid" style={{ pointerEvents: "none" }}>
+          <div className="tile-grid">
             {targetPreviews.map((url, i) => (
-              <div className="tile" data-state="empty" key={url}>
+              <div className="tile" key={url}>
                 <div className="tile-image">
                   <img src={url} alt={targets[i]?.name ?? ""} />
+                  <button
+                    type="button"
+                    className="tile-remove"
+                    aria-label={`Remove ${targets[i]?.name ?? "target"}`}
+                    disabled={submitting}
+                    onClick={(e) => { e.stopPropagation(); removeTarget(i); }}
+                  >
+                    ×
+                  </button>
                 </div>
                 <div className="tile-meta">
                   <span className="tile-name">{targets[i]?.name}</span>
@@ -154,6 +191,20 @@ export function ComposeForm() {
                 </div>
               </div>
             ))}
+            {remaining > 0 ? (
+              <button
+                type="button"
+                className="tile tile-add"
+                disabled={submitting}
+                onClick={() => targetsInputRef.current?.click()}
+              >
+                <span className="tile-image" aria-hidden="true">+</span>
+                <span className="tile-meta">
+                  <span className="tile-name">Add more</span>
+                  <span className="tile-status">{remaining} slot{remaining === 1 ? "" : "s"} left</span>
+                </span>
+              </button>
+            ) : null}
           </div>
         )}
       </div>
