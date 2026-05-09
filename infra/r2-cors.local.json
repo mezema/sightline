@@ -3,7 +3,7 @@
     {
       "id": "sightline-browser-uploads",
       "allowed": {
-        "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+        "origins": ["http://localhost:3000", "http://127.0.0.1:3000", "https://sightline-web.vercel.app"],
         "methods": ["PUT", "GET", "HEAD"],
         "headers": ["*"]
       },

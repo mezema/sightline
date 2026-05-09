@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import { ComposeForm } from "../../_components/compose-form";
 
 export default function NewInspectionPage() {
   return (
     <main className="canvas">
-      <ComposeForm />
+      <Suspense fallback={null}>
+        <ComposeForm />
+      </Suspense>
     </main>
   );
 }

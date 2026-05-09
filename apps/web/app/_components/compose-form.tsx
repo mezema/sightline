@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { getExample, type ExampleInspection } from "./examples";
 
 type UploadDescriptor = {
   imageAssetId: string;
@@ -16,6 +17,8 @@ const fileKey = (file: File) => `${file.name}|${file.size}|${file.lastModified}`
 
 export function ComposeForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const exampleId = searchParams?.get("example") ?? null;
   const [description, setDescription] = useState("");
   const [reference, setReference] = useState<File | null>(null);
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
@@ -25,17 +28,53 @@ export function ComposeForm() {
   const [progress, setProgress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [loadingExample, setLoadingExample] = useState(false);
   const targetsInputRef = useRef<HTMLInputElement>(null);
 
+  const busy = submitting || loadingExample;
   const ready = Boolean(reference) && description.trim().length > 0 && targets.length > 0;
   const remaining = MAX_TARGETS - targets.length;
 
   useEffect(() => {
+    if (loadingExample) return setHelper("Loading example…");
     if (!reference) return setHelper("Add a reference image to begin.");
     if (description.trim().length === 0) return setHelper("Describe what counts as a defect.");
     if (targets.length === 0) return setHelper("Add up to 25 target images.");
     setHelper(`${targets.length} target${targets.length === 1 ? "" : "s"} ready.`);
-  }, [reference, description, targets.length]);
+  }, [reference, description, targets.length, loadingExample]);
+
+  useEffect(() => {
+    if (!exampleId) return;
+    const example = getExample(exampleId);
+    if (!example) return;
+    let cancelled = false;
+    setLoadingExample(true);
+    (async () => {
+      try {
+        const [referenceFile, ...targetFiles] = await loadExampleFiles(example);
+        if (cancelled) return;
+        setDescription(example.description);
+        setReference(referenceFile);
+        setReferencePreview((previous) => {
+          if (previous) URL.revokeObjectURL(previous);
+          return URL.createObjectURL(referenceFile);
+        });
+        const urls = targetFiles.map((file) => URL.createObjectURL(file));
+        setTargets(targetFiles);
+        setTargetPreviews((previous) => {
+          previous.forEach((url) => URL.revokeObjectURL(url));
+          return urls;
+        });
+      } catch {
+        // Fall through silently — user can still author by hand.
+      } finally {
+        if (!cancelled) setLoadingExample(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [exampleId]);
 
   function chooseReference(file: File | undefined) {
     if (!file) return;
@@ -114,7 +153,7 @@ export function ComposeForm() {
           <input
             type="file"
             accept="image/*"
-            disabled={submitting}
+            disabled={busy}
             onChange={(e) => chooseReference(e.target.files?.[0])}
           />
           {referencePreview ? <img src={referencePreview} alt="Reference" /> : null}
@@ -125,7 +164,7 @@ export function ComposeForm() {
             placeholder="What defect should Sightline find?"
             rows={2}
             value={description}
-            disabled={submitting}
+            disabled={busy}
             onChange={(e) => setDescription(e.target.value)}
           />
           <div className="hero-meta">
@@ -152,7 +191,7 @@ export function ComposeForm() {
           type="file"
           accept="image/*"
           multiple
-          disabled={submitting}
+          disabled={busy}
           onChange={(e) => {
             addTargets(e.target.files);
             e.target.value = "";
@@ -163,7 +202,7 @@ export function ComposeForm() {
           <button
             type="button"
             className="compose-targets-empty"
-            disabled={submitting}
+            disabled={busy}
             onClick={() => targetsInputRef.current?.click()}
           >
             <strong>Add target images</strong>
@@ -179,7 +218,7 @@ export function ComposeForm() {
                     type="button"
                     className="tile-remove"
                     aria-label={`Remove ${targets[i]?.name ?? "target"}`}
-                    disabled={submitting}
+                    disabled={busy}
                     onClick={(e) => { e.stopPropagation(); removeTarget(i); }}
                   >
                     ×
@@ -195,7 +234,7 @@ export function ComposeForm() {
               <button
                 type="button"
                 className="tile tile-add"
-                disabled={submitting}
+                disabled={busy}
                 onClick={() => targetsInputRef.current?.click()}
               >
                 <span className="tile-image" aria-hidden="true">+</span>
@@ -285,6 +324,18 @@ function imageDimensions(file: File): Promise<{ width: number; height: number }>
     };
     image.src = url;
   });
+}
+
+async function loadExampleFiles(example: ExampleInspection): Promise<File[]> {
+  const assets = [example.reference, ...example.targets];
+  return Promise.all(
+    assets.map(async (asset) => {
+      const response = await fetch(asset.url);
+      if (!response.ok) throw new Error(`Could not load ${asset.url}`);
+      const blob = await response.blob();
+      return new File([blob], asset.filename, { type: asset.mimeType });
+    }),
+  );
 }
 
 function formatBytes(bytes: number) {
