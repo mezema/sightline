@@ -10,11 +10,17 @@ const clerkConfigured = Boolean(
 );
 
 export default clerkConfigured
-  ? clerkMiddleware(async (auth, req) => {
-      if (!isPublicRoute(req)) {
-        await auth.protect();
-      }
-    })
+  ? clerkMiddleware(
+      async (auth, req) => {
+        if (!isPublicRoute(req)) {
+          await auth.protect();
+        }
+      },
+      {
+        signInUrl: "/sign-in",
+        signUpUrl: "/sign-up",
+      },
+    )
   : () => {};
 
 export const config = {
