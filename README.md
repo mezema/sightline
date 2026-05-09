@@ -25,6 +25,108 @@ flowchart LR
   feedback --> job
 ```
 
+## What We Want
+
+Sightline should let a user say:
+
+> Here is the defect I care about. Here is an example image. Check these other images and show me where similar defects appear.
+
+The system should accept images, store them privately, create a durable inspection, run slow external analysis in the background, survive refreshes and failures, and return reviewable results that a human can correct.
+
+The MVP is successful when a user can:
+
+1. Sign in.
+2. Create an inspection with one reference image, one defect description, and up to 25 target images.
+3. Leave or refresh while processing continues.
+4. Reopen the same inspection from the library.
+5. See progress and partial failures.
+6. Review target images with boxes over detected defects.
+7. Mark results correct or wrong.
+8. Retry a failed target without rerunning the whole inspection.
+
+The MVP is not successful if jobs disappear on refresh, failed targets are hidden, images are public by default, or the user needs to understand the analyzer provider.
+
+## Requirements
+
+### Product Requirements
+
+| Requirement | Owner | Status |
+| --- | --- | --- |
+| One reference image defines the defect example. | Product | Built |
+| A written defect description explains what to find. | Product | Built |
+| A user can inspect up to 25 target images per inspection. | Product | Built |
+| An inspection persists after refresh, navigation, or return visits. | Product + Engineering | Built |
+| Progress is visible while processing runs. | Product + UX | Built with polling |
+| Results are reviewable per target image. | Product + UX | Built |
+| Failed targets remain visible. | Product + UX | Built |
+| A failed target can be retried independently. | Product | Built |
+| Human feedback is stored without overwriting analyzer output. | Product + Engineering | Built |
+
+### Engineering And Security Requirements
+
+| Requirement | Owner | Status |
+| --- | --- | --- |
+| Postgres is the source of truth for workflow state. | Engineering | Built |
+| Object storage owns image bytes. | Engineering | Built |
+| The browser uploads images through short-lived upload URLs. | Engineering + Security | Built |
+| Jobs run outside the browser in a background worker. | Engineering | Built |
+| Analyzer output is normalized before it reaches the UI. | Engineering | Built |
+| Provider-specific response formats stay behind an adapter boundary. | Engineering | Built |
+| Each result write is tied to a processing attempt. | Engineering | Built |
+| Users can only access their own inspections and images. | Security | Built when Clerk is configured |
+| Retention and permanent deletion policy is explicit. | Product + Compliance | Still needed |
+
+### Analyzer Contract Requirements
+
+These are the most important remaining unknowns before treating Sightline as production-ready with a real analyzer.
+
+| Requirement | Owner | Status |
+| --- | --- | --- |
+| Confirm whether analysis is one target per request or batch-based. | External analyzer owner | Still needed |
+| Confirm latency p50/p95 and rate limits. | External analyzer owner | Still needed |
+| Confirm whether webhooks are available. | External analyzer owner | Still needed |
+| Confirm output schema: defect flag, confidence, boxes, masks, annotated image, errors. | External analyzer owner | Partly built around boxes |
+| Confirm bounding-box coordinate system. | External analyzer owner | Built for Gemini normalized boxes |
+| Confirm privacy terms for uploaded images. | Product + Compliance | Still needed |
+| Confirm idempotency and retry semantics. | External analyzer owner + Engineering | Still needed |
+
+## How Sightline Meets The Requirements
+
+| Need | How Sightline does it | Benefit |
+| --- | --- | --- |
+| Durable inspections | Postgres stores inspections, targets, attempts, results, detections, feedback, and events. | Work survives refreshes, retries, worker failures, and return visits. |
+| Private image handling | Cloudflare R2 stores image blobs; the database stores metadata and storage keys. | Images are not mixed into job messages or application state. |
+| Slow external analysis | Trigger.dev or the local queue runs one processing attempt per target image. | The browser is not blocked by analyzer latency. |
+| Reviewable results | Analyzer responses are normalized into `Result` and `Detection` records. | The UI can show stable boxes and statuses regardless of provider format. |
+| Human correction | Feedback rows are additive and do not mutate raw analyzer output. | The system keeps an audit trail and can compare analyzer output to review decisions. |
+| Partial failure handling | Each target has its own attempt/result lifecycle. | One failed image does not invalidate the whole inspection. |
+| Replaceable infrastructure | Core rules live behind ports for storage, jobs, and analyzers. | R2, Trigger.dev, Gemini, or Postgres can be replaced with less product churn. |
+
+## What Can Still Be Improved
+
+The next improvements should be driven by the current bottleneck: the real analyzer contract.
+
+1. **Analyzer contract and spike**
+   Run a small real-analyzer test with one reference, one description, and five targets. Record latency, rate limits, batch support, webhook support, output schema, error shape, retry behavior, and privacy terms.
+
+2. **Reliability hardening**
+   Add stronger duplicate-result handling, stuck-job reconciliation, analyzer-request tracking, and an outbox publisher if queue publication needs stricter guarantees.
+
+3. **Operational dashboard**
+   Track upload failures, queue depth, attempt wait time, analyzer latency p50/p95/p99, analyzer error rate, retry count, partial failure rate, and job completion time.
+
+4. **Realtime progress**
+   Polling is enough for MVP. If progress needs to feel live, add SSE, Trigger.dev realtime, or another one-way update path before considering custom WebSockets.
+
+5. **Security, retention, and compliance**
+   Define retention periods, permanent deletion behavior, tenant isolation, signed URL lifetime, and whether the external analyzer stores or trains on customer images.
+
+6. **Product review tools**
+   Add manual box correction, false positive/false negative reasons, project or collection organization, exports, and report generation once the core workflow is stable.
+
+7. **Scale and cost controls**
+   Add measured concurrency limits, per-user or per-tenant quotas, thumbnail generation, batch analyzer support if available, and load tests for 1, 10, and 100 simultaneous inspections.
+
 ## Current Stack
 
 | Layer | Tool |
